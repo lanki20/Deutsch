@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>旅遊德文自學幫手</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root { color-scheme: light; }
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans TC", sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(226, 232, 240, 0.85);
+        }
+        .word-pop { animation: pop 0.2s ease-out; }
+        @keyframes pop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .safe-bottom { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
+        textarea, input, select, button { font: inherit; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-800 p-4 md:p-8 relative safe-bottom">
+
+    <div class="fixed top-4 right-4 md:top-8 md:right-8 z-40 flex gap-2">
+        <button onclick="openApiModal()" class="w-11 h-11 rounded-full bg-white border border-slate-200 shadow-sm text-slate-500 hover:text-indigo-600 hover:border-indigo-200 hover:shadow transition-all flex justify-center items-center" title="設定 API Key">
+            <i class="fa-solid fa-gear text-lg"></i>
+        </button>
+    </div>
+
+    <div id="apiModal" class="hidden fixed inset-0 bg-slate-900/45 backdrop-blur-sm flex justify-center items-center z-50 px-4">
+        <div class="bg-white p-5 rounded-2xl shadow-xl max-w-md w-full max-h-[92vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-2">
+                <h3 class="text-lg font-bold text-slate-800"><i class="fa-solid fa-key text-indigo-500 mr-2"></i>系統設定</h3>
+                <button onclick="closeApiModal()" class="w-9 h-9 rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div class="text-xs text-slate-500 mb-4 leading-relaxed space-y-2">
+                <p>請貼上您的 Gemini API Key。金鑰只會存在這台裝置的瀏覽器 localStorage，不會寫進 GitHub 程式碼。</p>
+                <p class="text-amber-700 bg-amber-50 border border-amber-100 rounded-xl p-2">自用可以這樣做；公開給別人使用時，建議改用後端 proxy，避免 API Key 外流與額度被濫用。</p>
+            </div>
+
+            <label for="apiKeyInput" class="block text-xs font-bold text-slate-500 mb-1">Gemini API Key</label>
+            <div class="flex gap-2 mb-3">
+                <input type="password" id="apiKeyInput" class="flex-1 min-w-0 p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm" placeholder="貼上 API Key">
+                <button type="button" onclick="toggleApiKeyVisibility()" class="px-3 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50" title="顯示/隱藏">
+                    <i id="apiEyeIcon" class="fa-solid fa-eye"></i>
+                </button>
+            </div>
+
+            <label for="modelSelect" class="block text-xs font-bold text-slate-500 mb-1">模型</label>
+            <select id="modelSelect" class="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm mb-4 bg-white">
+                <option value="gemini-2.5-flash">gemini-2.5-flash（建議：穩定、便宜、夠用）</option>
+                <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite（更省）</option>
+                <option value="gemini-3.5-flash">gemini-3.5-flash（較新；若免費額度不支援再換回 2.5）</option>
+            </select>
+
+            <div class="grid grid-cols-2 gap-2">
+                <button onclick="testApiKey()" class="px-4 py-2.5 text-sm font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition-colors">測試金鑰</button>
+                <button onclick="saveApiKey()" class="px-4 py-2.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors shadow-sm">儲存設定</button>
+            </div>
+            <button onclick="clearApiKey()" class="mt-2 w-full px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50 rounded-xl transition-colors">清除本機金鑰</button>
+            <div id="apiSaveMsg" class="hidden mt-3 text-center text-xs font-bold"></div>
+        </div>
+    </div>
+
+    <div class="max-w-2xl mx-auto space-y-6 pt-10 md:pt-4">
+        <header class="text-center space-y-2 px-10 md:px-0">
+            <h1 class="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight">
+                <i class="fa-solid fa-plane-departure text-indigo-600 mr-2"></i>旅遊德文自學幫手
+            </h1>
+            <p class="text-sm md:text-base text-slate-500">輸入中文，自動翻譯並拆解發音。<strong class="text-indigo-600">點擊單字可聽慢速發音與解釋。</strong></p>
+        </header>
+
+        <main class="glass-panel p-5 md:p-6 rounded-2xl shadow-sm border-t-4 border-t-indigo-600">
+            <label for="chineseInput" class="block text-base md:text-lg font-bold text-slate-700 mb-2">請輸入想學習的中文句子：</label>
+            <textarea id="chineseInput" rows="4" class="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all resize-none text-lg leading-relaxed" placeholder="例如：不好意思，請問要去哪裡買票？"></textarea>
+
+            <button id="translateBtn" class="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold py-3.5 px-4 rounded-xl transition-colors flex justify-center items-center shadow-md shadow-indigo-200 text-lg">
+                <span>開始學習</span>
+                <i class="fa-solid fa-arrow-right ml-2"></i>
+            </button>
+
+            <div id="loadingIndicator" class="hidden mt-4 text-center text-indigo-600 font-medium">
+                <i class="fa-solid fa-circle-notch fa-spin mr-2"></i>處理中，請稍候...
+            </div>
+            <div id="errorMessage" class="hidden mt-4 text-center text-red-500 text-sm font-medium bg-red-50 p-3 rounded-lg border border-red-100"></div>
+
+            <div id="historyContainer" class="hidden mt-6 pt-4 border-t border-slate-200">
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider"><i class="fa-solid fa-clock-rotate-left mr-1"></i>最近查詢紀錄</h3>
+                    <button onclick="clearHistory()" class="text-xs text-slate-400 hover:text-red-500 transition-colors" title="清除紀錄">清除</button>
+                </div>
+                <div id="historyList" class="flex gap-2 overflow-x-auto no-scrollbar pb-2"></div>
+            </div>
+        </main>
+
+        <section id="resultCard" class="hidden glass-panel p-5 md:p-6 rounded-2xl shadow-md border-l-4 border-indigo-600 space-y-6 transform transition-all">
+            <div>
+                <div class="flex justify-between items-end mb-2 gap-2">
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">德文翻譯（點擊單字解析）</h3>
+                    <span class="text-xs text-indigo-500"><i class="fa-solid fa-hand-pointer mr-1"></i>可點擊</span>
+                </div>
+                <div id="germanText" class="text-2xl md:text-3xl font-bold text-slate-900 break-words leading-relaxed"></div>
+            </div>
+
+            <div id="wordDetailBox" class="hidden bg-amber-50 border border-amber-200 p-4 rounded-xl shadow-inner flex items-center justify-between transition-all gap-4">
+                <div class="min-w-0">
+                    <h4 class="text-xs font-bold text-amber-600 uppercase tracking-wider mb-1">單字解析</h4>
+                    <p class="text-lg font-bold text-slate-800 break-words"><span id="detailWord" class="text-indigo-700 mr-2"></span><span id="detailMeaning" class="text-slate-600 text-base font-medium"></span></p>
+                </div>
+                <button onclick="playCurrentWordAudio()" class="h-11 w-11 min-w-[44px] bg-white border border-amber-300 hover:bg-amber-100 text-amber-600 rounded-full flex items-center justify-center transition-colors shadow-sm" title="朗讀此單字（慢速）">
+                    <i class="fa-solid fa-volume-up"></i>
+                </button>
+            </div>
+
+            <div class="bg-indigo-50 p-4 rounded-xl">
+                <h3 class="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-2">整句中文諧音拆解</h3>
+                <p id="pronunciationText" class="text-lg text-indigo-900 leading-relaxed"></p>
+            </div>
+
+            <div>
+                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">整句語音朗讀</h3>
+                <div class="flex flex-wrap gap-3">
+                    <button onclick="playAudio(1.0)" class="flex-1 min-w-[120px] bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium py-2.5 px-4 rounded-lg shadow-sm transition-all flex items-center justify-center group">
+                        <i class="fa-solid fa-volume-high text-indigo-500 mr-2 group-hover:scale-110 transition-transform"></i>正常速度
+                    </button>
+                    <button onclick="playAudio(0.55)" class="flex-1 min-w-[120px] bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium py-2.5 px-4 rounded-lg shadow-sm transition-all flex items-center justify-center group">
+                        <i class="fa-solid fa-turtle text-emerald-500 mr-2 group-hover:scale-110 transition-transform"></i>慢速
+                    </button>
+                </div>
+            </div>
+
+            <div class="pt-4 border-t border-slate-100">
+                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">中文原意</h3>
+                <p id="chineseMeaningText" class="text-md text-slate-600 font-medium"></p>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        const STORAGE_KEY_API = 'custom_gemini_api_key';
+        const STORAGE_KEY_MODEL = 'custom_gemini_model';
+        const STORAGE_KEY_HISTORY = 'german_search_history_v3';
+        const DEFAULT_MODEL = 'gemini-2.5-flash';
+
+        let currentGermanText = '';
+        let currentWordForAudio = '';
+        let searchHistory = safeParseJson(localStorage.getItem(STORAGE_KEY_HISTORY), []);
+
+        const responseSchema = {
+            type: 'object',
+            properties: {
+                german: { type: 'string' },
+                pronunciation: { type: 'string' },
+                chinese: { type: 'string' },
+                word_details: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        properties: {
+                            word: { type: 'string' },
+                            meaning: { type: 'string' }
+                        },
+                        required: ['word', 'meaning']
+                    }
+                }
+            },
+            required: ['german', 'pronunciation', 'chinese', 'word_details']
+        };
+
+        const systemPrompt = `你是一個專業的德文旅遊會話老師。使用者會輸入一句中文，請將其翻譯成適合德國、奧地利、瑞士旅遊現場使用的自然德文。
+請嚴格回傳 JSON，不要加入 Markdown，不要加入多餘文字。
+JSON 欄位：
+- german：德文翻譯句子，包含正常標點。
+- pronunciation：將德文句子按單字或音節拆解，並提供精準中文諧音，例如 Guten (咕-騰) Morgen (摸-根)。
+- chinese：原本中文意思。
+- word_details：句子中每一個可點擊德文單字的中文解釋。
+word_details 規則：
+1. 必須逐字列出 german 句子中的每個德文單字；不要只列片語，不要省略冠詞、代名詞、介系詞、助動詞。
+2. word 必須使用句子中出現的原字形，但拿掉標點。例如 german 是「Entschuldigen Sie, wo ...」，word_details 必須包含 Entschuldigen、Sie、wo。
+3. meaning 必須是繁體中文，說明該單字在本句中的意思；不是整句翻譯。
+4. 若單字重複，只需列一次。
+範例：
+{
+  "german": "Entschuldigen Sie, wo kann ich Tickets kaufen?",
+  "pronunciation": "Entschuldigen Sie (恩特-舒迪根 茲) wo (沃) kann (康) ich (伊希) Tickets (踢-kets) kaufen (考芬)",
+  "chinese": "不好意思，請問我可以在哪裡買票？",
+  "word_details": [
+    {"word":"Entschuldigen","meaning":"不好意思／抱歉，用來禮貌地開口打擾別人"},
+    {"word":"Sie","meaning":"您，禮貌稱呼對方"},
+    {"word":"wo","meaning":"哪裡"},
+    {"word":"kann","meaning":"可以、能夠"},
+    {"word":"ich","meaning":"我"},
+    {"word":"Tickets","meaning":"票，通常指門票或車票"},
+    {"word":"kaufen","meaning":"購買"}
+  ]
+}`;
+
+        const COMMON_GERMAN_MEANINGS = {
+            'entschuldigen': '不好意思／抱歉，用來禮貌地開口打擾別人',
+            'entschuldigung': '不好意思／抱歉',
+            'bitte': '請／麻煩您，也可表示「不客氣」',
+            'danke': '謝謝',
+            'dankeschön': '非常謝謝',
+            'hallo': '你好',
+            'guten': '好的，用於 Guten Morgen／Guten Tag 等問候',
+            'morgen': '早上；也可表示明天',
+            'tag': '白天／日子；Guten Tag 是您好',
+            'abend': '晚上',
+            'tschüss': '再見',
+            'auf': '在……上／到……上；依句子有不同用法',
+            'wiedersehen': '再見；常見於 Auf Wiedersehen',
+            'sie': '您／他們；本句若開頭大寫通常是禮貌的「您」',
+            'du': '你，非正式稱呼',
+            'ich': '我',
+            'wir': '我們',
+            'ihr': '你們／她的，依句子判斷',
+            'er': '他',
+            'es': '它／這件事',
+            'das': '這個／那個；也可作中性冠詞',
+            'der': '這個／那個；也可作陽性冠詞',
+            'die': '這個／那個；也可作陰性或複數冠詞',
+            'den': '陽性受格冠詞，相當於「那個」',
+            'dem': '與格冠詞，相當於「那個／給那個」',
+            'ein': '一個，陽性或中性不定冠詞',
+            'eine': '一個，陰性不定冠詞',
+            'einen': '一個，陽性受格不定冠詞',
+            'einem': '一個，與格不定冠詞',
+            'mein': '我的',
+            'meine': '我的，陰性或複數形式',
+            'dein': '你的',
+            'ihre': '您的／她的／他們的，依句子判斷',
+            'wo': '哪裡',
+            'wohin': '往哪裡',
+            'woher': '從哪裡來',
+            'wann': '什麼時候',
+            'wie': '如何／怎麼樣',
+            'was': '什麼',
+            'wer': '誰',
+            'warum': '為什麼',
+            'welche': '哪一個／哪些',
+            'welcher': '哪一個',
+            'welches': '哪一個',
+            'ist': '是／在，sein 的第三人稱單數',
+            'sind': '是／在，sein 的複數或禮貌稱呼形式',
+            'bin': '是／在，ich 對應的 sein 形式',
+            'bist': '是／在，du 對應的 sein 形式',
+            'sein': '是／在；也可表示「他的」',
+            'haben': '有',
+            'habe': '有，ich 對應形式',
+            'hat': '有，第三人稱單數',
+            'gibt': '有／存在；es gibt 表示「有」',
+            'kann': '可以／能夠',
+            'können': '可以／能夠',
+            'könnte': '可不可以／能否，較委婉',
+            'möchte': '想要，較禮貌的說法',
+            'möchten': '想要，複數或禮貌稱呼形式',
+            'muss': '必須',
+            'müssen': '必須',
+            'darf': '可以／被允許',
+            'dürfen': '可以／被允許',
+            'soll': '應該／要',
+            'sollen': '應該／要',
+            'und': '和',
+            'oder': '或',
+            'aber': '但是',
+            'nicht': '不',
+            'kein': '沒有／不是一個',
+            'keine': '沒有／不是一個，陰性或複數形式',
+            'ja': '是／好的',
+            'nein': '不是／不要',
+            'hier': '這裡',
+            'dort': '那裡',
+            'da': '那裡／這裡，依語境判斷',
+            'links': '左邊',
+            'rechts': '右邊',
+            'geradeaus': '直走',
+            'zurück': '返回／回去',
+            'in': '在……裡／到……裡',
+            'im': '在……裡，in dem 的縮寫',
+            'am': '在……旁／在某日，an dem 的縮寫',
+            'an': '在……旁／靠近／於',
+            'auf': '在……上／到……上',
+            'zu': '到／去',
+            'zum': '到……，zu dem 的縮寫',
+            'zur': '到……，zu der 的縮寫',
+            'nach': '往／去；常用於城市或國家',
+            'von': '從／來自',
+            'aus': '從……出來／來自',
+            'mit': '和／用／搭乘',
+            'ohne': '沒有／不含',
+            'für': '為了／給／適用於',
+            'bei': '在……那裡／靠近',
+            'bis': '直到／到',
+            'um': '在幾點／圍繞／為了',
+            'ticket': '票，通常指門票或車票',
+            'tickets': '票，通常指門票或車票',
+            'fahrkarte': '車票',
+            'fahrkarten': '車票',
+            'karte': '票／卡／地圖，依句子判斷',
+            'karten': '票／卡／地圖的複數',
+            'fahrplan': '時刻表',
+            'zug': '火車',
+            'züge': '火車的複數',
+            'bahnhof': '火車站',
+            'hauptbahnhof': '中央車站',
+            'gleis': '月台／軌道',
+            'bus': '巴士',
+            'bahn': '鐵路／列車系統',
+            'u-bahn': '地鐵',
+            's-bahn': '城市快鐵',
+            'straßenbahn': '路面電車',
+            'taxi': '計程車',
+            'flughafen': '機場',
+            'hotel': '旅館／飯店',
+            'zimmer': '房間',
+            'reservierung': '預訂',
+            'buchung': '訂房／預訂',
+            'rechnung': '帳單／發票',
+            'bezahlen': '付款',
+            'zahlen': '付款',
+            'bar': '現金；也可能表示酒吧，依句子判斷',
+            'bargeld': '現金',
+            'kreditkarte': '信用卡',
+            'ec-karte': '德國常見金融卡／轉帳卡',
+            'preis': '價格',
+            'kostet': '花費／價格是',
+            'kosten': '費用／花費',
+            'kaufen': '購買',
+            'verkaufen': '販售',
+            'brauche': '需要，ich 對應形式',
+            'brauchen': '需要',
+            'suchen': '尋找',
+            'finden': '找到',
+            'gehen': '走／去',
+            'fahren': '搭車／開車／前往',
+            'nehmen': '拿／搭乘',
+            'steigen': '上車／登上',
+            'aussteigen': '下車',
+            'umsteigen': '轉乘',
+            'öffnen': '打開',
+            'geöffnet': '營業中／開著',
+            'geschlossen': '關閉／未營業',
+            'heute': '今天',
+            'morgen': '明天／早上，依句子判斷',
+            'jetzt': '現在',
+            'später': '稍後',
+            'früh': '早',
+            'spät': '晚',
+            'toilette': '廁所',
+            'wc': '廁所',
+            'wasser': '水',
+            'essen': '食物／吃，依句子判斷',
+            'trinken': '喝',
+            'restaurant': '餐廳',
+            'apotheke': '藥局',
+            'krankenhaus': '醫院',
+            'hilfe': '幫助',
+            'polizei': '警察',
+            'notfall': '緊急情況',
+            'adresse': '地址',
+            'straße': '街道',
+            'platz': '廣場／位置',
+            'eingang': '入口',
+            'ausgang': '出口',
+            'nähe': '附近',
+            'nahe': '靠近',
+            'weit': '遠',
+            'kurz': '短',
+            'lang': '長',
+            'schnell': '快',
+            'langsam': '慢',
+            'groß': '大',
+            'klein': '小'
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            renderHistory();
+            hydrateSettingsUI();
+        });
+
+        document.getElementById('translateBtn').addEventListener('click', handleTranslate);
+        document.getElementById('chineseInput').addEventListener('keydown', (event) => {
+            if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') handleTranslate();
+        });
+
+        function safeParseJson(value, fallback) {
+            try { return value ? JSON.parse(value) : fallback; }
+            catch { return fallback; }
+        }
+
+        function hydrateSettingsUI() {
+            document.getElementById('apiKeyInput').value = localStorage.getItem(STORAGE_KEY_API) || '';
+            document.getElementById('modelSelect').value = localStorage.getItem(STORAGE_KEY_MODEL) || DEFAULT_MODEL;
+        }
+
+        function openApiModal() {
+            hydrateSettingsUI();
+            setApiMessage('', '');
+            document.getElementById('apiModal').classList.remove('hidden');
+        }
+
+        function closeApiModal() {
+            document.getElementById('apiModal').classList.add('hidden');
+        }
+
+        function toggleApiKeyVisibility() {
+            const input = document.getElementById('apiKeyInput');
+            const icon = document.getElementById('apiEyeIcon');
+            const isHidden = input.type === 'password';
+            input.type = isHidden ? 'text' : 'password';
+            icon.className = isHidden ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
+        }
+
+        function saveApiKey() {
+            const key = document.getElementById('apiKeyInput').value.trim();
+            const model = document.getElementById('modelSelect').value;
+
+            if (!key) {
+                setApiMessage('請先貼上 API Key。', 'error');
+                return false;
+            }
+
+            localStorage.setItem(STORAGE_KEY_API, key);
+            localStorage.setItem(STORAGE_KEY_MODEL, model);
+            setApiMessage('已儲存。', 'ok');
+            return true;
+        }
+
+        function clearApiKey() {
+            localStorage.removeItem(STORAGE_KEY_API);
+            document.getElementById('apiKeyInput').value = '';
+            setApiMessage('已清除這台裝置中的 API Key。', 'ok');
+        }
+
+        function setApiMessage(text, type) {
+            const msg = document.getElementById('apiSaveMsg');
+            if (!text) {
+                msg.classList.add('hidden');
+                msg.textContent = '';
+                return;
+            }
+            msg.textContent = text;
+            msg.className = 'mt-3 text-center text-xs font-bold ' + (type === 'error' ? 'text-red-600' : 'text-emerald-600');
+        }
+
+        async function testApiKey() {
+            if (!saveApiKey()) return;
+            const key = localStorage.getItem(STORAGE_KEY_API);
+            const model = localStorage.getItem(STORAGE_KEY_MODEL) || DEFAULT_MODEL;
+            setApiMessage('測試中...', 'ok');
+
+            try {
+                const data = await callGeminiInteractions(key, model, '只回覆 OK', '你是連線測試。只輸出 OK。', null);
+                const text = extractTextFromInteraction(data).trim();
+                if (!text) throw new Error('API 有回應，但沒有文字內容。');
+                setApiMessage(`連線成功：${model}`, 'ok');
+            } catch (error) {
+                setApiMessage(`測試失敗：${formatError(error)}`, 'error');
+            }
+        }
+
+        async function handleTranslate() {
+            const chineseInput = document.getElementById('chineseInput').value.trim();
+            if (!chineseInput) return;
+
+            const btn = document.getElementById('translateBtn');
+            const loading = document.getElementById('loadingIndicator');
+            const resultCard = document.getElementById('resultCard');
+            const errorMsg = document.getElementById('errorMessage');
+            const wordDetailBox = document.getElementById('wordDetailBox');
+
+            const apiKey = localStorage.getItem(STORAGE_KEY_API);
+            const model = localStorage.getItem(STORAGE_KEY_MODEL) || DEFAULT_MODEL;
+
+            if (!apiKey) {
+                showError('缺少 API Key。請點擊右上角齒輪設定您的金鑰。');
+                resultCard.classList.add('hidden');
+                return;
+            }
+
+            const existingRecord = searchHistory.find(item => item.text === chineseInput && item.model === model);
+            if (existingRecord) {
+                displayResult(existingRecord.result);
+                searchHistory = searchHistory.filter(item => !(item.text === chineseInput && item.model === model));
+                searchHistory.unshift(existingRecord);
+                saveAndRenderHistory();
+                return;
+            }
+
+            btn.classList.add('hidden');
+            loading.classList.remove('hidden');
+            resultCard.classList.add('hidden');
+            errorMsg.classList.add('hidden');
+            wordDetailBox.classList.add('hidden');
+
+            try {
+                const data = await callGeminiInteractions(apiKey, model, chineseInput, systemPrompt, responseSchema);
+                const resultJson = parseGeminiJson(data);
+                validateResult(resultJson);
+
+                searchHistory.unshift({ text: chineseInput, model, result: resultJson, createdAt: Date.now() });
+                if (searchHistory.length > 10) searchHistory.pop();
+                saveAndRenderHistory();
+                displayResult(resultJson);
+            } catch (error) {
+                showError(formatError(error));
+            } finally {
+                loading.classList.add('hidden');
+                btn.classList.remove('hidden');
+            }
+        }
+
+        async function callGeminiInteractions(apiKey, model, input, instruction, schema) {
+            const body = {
+                model,
+                input,
+                system_instruction: instruction,
+                store: false,
+                generation_config: {
+                    temperature: 0.2,
+                    max_output_tokens: 1200
+                }
+            };
+
+            if (schema) {
+                body.response_format = {
+                    type: 'text',
+                    mime_type: 'application/json',
+                    schema
+                };
+            }
+
+            return fetchWithRetry('https://generativelanguage.googleapis.com/v1beta/interactions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-goog-api-key': apiKey
+                },
+                body: JSON.stringify(body)
+            });
+        }
+
+        async function fetchWithRetry(url, options, maxRetries = 2) {
+            let lastError;
+            for (let i = 0; i <= maxRetries; i++) {
+                try {
+                    const response = await fetch(url, options);
+                    const text = await response.text();
+                    const data = text ? safeParseJson(text, text) : {};
+
+                    if (!response.ok) {
+                        const message = data?.error?.message || data?.message || (typeof data === 'string' ? data : '') || `HTTP ${response.status}`;
+                        const error = new Error(message);
+                        error.status = response.status;
+                        error.payload = data;
+                        throw error;
+                    }
+                    return data;
+                } catch (error) {
+                    lastError = error;
+                    const retryable = !error.status || [408, 429, 500, 502, 503, 504].includes(error.status);
+                    if (!retryable || i === maxRetries) break;
+                    await new Promise(resolve => setTimeout(resolve, 900 * Math.pow(2, i)));
+                }
+            }
+            throw lastError;
+        }
+
+        function extractTextFromInteraction(data) {
+            if (typeof data?.output_text === 'string') return data.output_text;
+            const steps = Array.isArray(data?.steps) ? data.steps : [];
+            const modelOutputs = steps.filter(step => step.type === 'model_output');
+            const lastOutput = modelOutputs[modelOutputs.length - 1];
+            const content = Array.isArray(lastOutput?.content) ? lastOutput.content : [];
+            return content
+                .filter(part => part.type === 'text' && typeof part.text === 'string')
+                .map(part => part.text)
+                .join('\n')
+                .trim();
+        }
+
+        function parseGeminiJson(data) {
+            let text = extractTextFromInteraction(data);
+            if (!text) throw new Error('API 回應沒有文字內容。');
+            text = text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```$/i, '').trim();
+            const start = text.indexOf('{');
+            const end = text.lastIndexOf('}');
+            if (start >= 0 && end > start) text = text.slice(start, end + 1);
+            return JSON.parse(text);
+        }
+
+        function validateResult(result) {
+            if (!result || typeof result !== 'object') throw new Error('回傳格式不是物件。');
+            if (!result.german || !result.pronunciation || !result.chinese) throw new Error('回傳 JSON 缺少必要欄位。');
+            if (!Array.isArray(result.word_details)) result.word_details = [];
+        }
+
+        function formatError(error) {
+            const status = error?.status;
+            const raw = error?.message || '請稍後再試。';
+
+            if (status === 400) return `請求格式或模型設定不被接受。可先到齒輪把模型改成 gemini-2.5-flash 再測試。原始訊息：${raw}`;
+            if (status === 401 || status === 403) return `API Key 無效、權限不足、金鑰限制不符，或該專案尚未可用。請回 AI Studio 重新建立一把新金鑰。原始訊息：${raw}`;
+            if (status === 404) return `找不到 API 或模型。請確認模型選 gemini-2.5-flash，不要使用舊的 preview 模型。原始訊息：${raw}`;
+            if (status === 429) return `超過免費額度或短時間請求太多。稍後再試，或到 AI Studio 檢查 Rate Limit / Billing。原始訊息：${raw}`;
+            if (status >= 500) return `Google API 暫時異常。稍後重試。原始訊息：${raw}`;
+            if (raw.includes('Failed to fetch')) return '瀏覽器無法連到 Google API。請確認網路、VPN、瀏覽器外掛、或 GitHub Pages 是否以 HTTPS 開啟。';
+            return raw;
+        }
+
+        function showError(message) {
+            const errorMsg = document.getElementById('errorMessage');
+            errorMsg.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-1"></i>處理失敗：${escapeHtml(message)}`;
+            errorMsg.classList.remove('hidden');
+        }
+
+        function displayResult(resultJson) {
+            const repairedResult = ensureWordDetails(resultJson);
+            currentGermanText = repairedResult.german;
+            document.getElementById('pronunciationText').textContent = repairedResult.pronunciation;
+            document.getElementById('chineseMeaningText').textContent = repairedResult.chinese;
+            document.getElementById('wordDetailBox').classList.add('hidden');
+            renderClickableGermanText(repairedResult.german, repairedResult.word_details || []);
+            document.getElementById('resultCard').classList.remove('hidden');
+        }
+
+        function saveAndRenderHistory() {
+            localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(searchHistory));
+            renderHistory();
+        }
+
+        function renderHistory() {
+            const container = document.getElementById('historyContainer');
+            const list = document.getElementById('historyList');
+
+            if (!Array.isArray(searchHistory) || searchHistory.length === 0) {
+                container.classList.add('hidden');
+                return;
+            }
+
+            container.classList.remove('hidden');
+            list.innerHTML = '';
+
+            searchHistory.forEach(item => {
+                const btn = document.createElement('button');
+                btn.className = 'whitespace-nowrap bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 text-indigo-700 text-sm py-1.5 px-4 rounded-full transition-colors font-medium';
+                btn.textContent = item.text.length > 15 ? item.text.substring(0, 15) + '...' : item.text;
+                btn.onclick = () => {
+                    document.getElementById('chineseInput').value = item.text;
+                    displayResult(item.result);
+                };
+                list.appendChild(btn);
+            });
+        }
+
+        function clearHistory() {
+            searchHistory = [];
+            saveAndRenderHistory();
+        }
+
+        function ensureWordDetails(resultJson) {
+            const result = resultJson && typeof resultJson === 'object' ? resultJson : {};
+            const german = String(result.german || '');
+            const incomingDetails = Array.isArray(result.word_details) ? result.word_details : [];
+            const tokens = getGermanTokens(german);
+            const seen = new Set();
+            const repairedDetails = [];
+
+            tokens.forEach(token => {
+                const normalized = normalizeGermanWord(token);
+                if (!normalized || seen.has(normalized)) return;
+                seen.add(normalized);
+                repairedDetails.push({
+                    word: token,
+                    meaning: findMeaningForToken(token, incomingDetails)
+                });
+            });
+
+            result.word_details = repairedDetails;
+            return result;
+        }
+
+        function findMeaningForToken(token, wordDetails) {
+            const normalized = normalizeGermanWord(token);
+            const details = (Array.isArray(wordDetails) ? wordDetails : [])
+                .map(detail => ({
+                    originalWord: String(detail?.word || ''),
+                    word: normalizeGermanWord(detail?.word),
+                    meaning: String(detail?.meaning || '').trim()
+                }))
+                .filter(detail => detail.word && detail.meaning && !/^無個別解釋$/.test(detail.meaning));
+
+            const exact = details.find(detail => detail.word === normalized);
+            if (exact) return exact.meaning;
+
+            const phraseMatch = details.find(detail => {
+                const words = detail.word.split(/\s+/).map(normalizeGermanWord).filter(Boolean);
+                return words.includes(normalized);
+            });
+            if (phraseMatch) return phraseMatch.meaning;
+
+            const containsMatch = details.find(detail => {
+                const escaped = escapeRegExp(normalized);
+                return new RegExp(`(^|\\s)${escaped}(\\s|$)`).test(detail.word);
+            });
+            if (containsMatch) return containsMatch.meaning;
+
+            const fallback = fallbackMeaning(normalized);
+            if (fallback) return fallback;
+
+            return '這個單字的中文解釋沒有從 AI 回傳；請重新按「開始學習」讓它再生成一次。';
+        }
+
+        function fallbackMeaning(normalizedWord) {
+            if (COMMON_GERMAN_MEANINGS[normalizedWord]) return COMMON_GERMAN_MEANINGS[normalizedWord];
+
+            const umlautVariants = normalizedWord
+                .replace(/ä/g, 'ae')
+                .replace(/ö/g, 'oe')
+                .replace(/ü/g, 'ue')
+                .replace(/ß/g, 'ss');
+            if (COMMON_GERMAN_MEANINGS[umlautVariants]) return COMMON_GERMAN_MEANINGS[umlautVariants];
+
+            const candidateStems = [
+                normalizedWord.replace(/(en|ern|eln)$/u, ''),
+                normalizedWord.replace(/(er|em|es|e|n|s)$/u, '')
+            ].filter(Boolean);
+
+            for (const stem of candidateStems) {
+                if (COMMON_GERMAN_MEANINGS[stem]) return COMMON_GERMAN_MEANINGS[stem];
+                if (COMMON_GERMAN_MEANINGS[stem + 'en']) return COMMON_GERMAN_MEANINGS[stem + 'en'];
+            }
+            return '';
+        }
+
+        function escapeRegExp(value) {
+            return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
+        function renderClickableGermanText(germanSentence, wordDetails) {
+            const container = document.getElementById('germanText');
+            container.innerHTML = '';
+
+            const normalizedDetails = (Array.isArray(wordDetails) ? wordDetails : []).map(detail => ({
+                word: normalizeGermanWord(detail.word),
+                meaning: detail.meaning || findMeaningForToken(detail.word, wordDetails)
+            }));
+
+            const parts = germanSentence.split(/([A-Za-zÄÖÜäöüẞßÀ-ÿ]+(?:[-'][A-Za-zÄÖÜäöüẞßÀ-ÿ]+)?)/g);
+            parts.forEach(part => {
+                if (/^[A-Za-zÄÖÜäöüẞßÀ-ÿ]+(?:[-'][A-Za-zÄÖÜäöüẞßÀ-ÿ]+)?$/.test(part)) {
+                    const span = document.createElement('span');
+                    span.textContent = part;
+                    span.className = 'cursor-pointer text-indigo-700 hover:text-indigo-500 hover:bg-indigo-100 underline decoration-indigo-300 decoration-dashed underline-offset-4 transition-colors px-1 rounded inline-block';
+
+                    const normalized = normalizeGermanWord(part);
+                    const detail = normalizedDetails.find(d => d.word === normalized);
+                    const meaning = detail ? detail.meaning : findMeaningForToken(part, wordDetails);
+
+                    span.onclick = event => {
+                        event.target.classList.remove('word-pop');
+                        void event.target.offsetWidth;
+                        event.target.classList.add('word-pop');
+                        showWordDetail(part, meaning);
+                    };
+                    container.appendChild(span);
+                } else {
+                    container.appendChild(document.createTextNode(part));
+                }
+            });
+        }
+
+        function getGermanTokens(sentence) {
+            return String(sentence || '').match(/[A-Za-zÄÖÜäöüẞßÀ-ÿ]+(?:[-'][A-Za-zÄÖÜäöüẞßÀ-ÿ]+)?/g) || [];
+        }
+
+        function normalizeGermanWord(word) {
+            return String(word || '')
+                .toLowerCase()
+                .replace(/[.,!?;:()„“”"'’¿¡]/g, '')
+                .trim();
+        }
+
+        function showWordDetail(word, meaning) {
+            currentWordForAudio = word;
+            document.getElementById('detailWord').textContent = word;
+            document.getElementById('detailMeaning').textContent = meaning;
+            document.getElementById('wordDetailBox').classList.remove('hidden');
+            playCurrentWordAudio();
+        }
+
+        function playCurrentWordAudio() {
+            if (!currentWordForAudio) return;
+            speakGerman(currentWordForAudio, 0.55);
+        }
+
+        function playAudio(rate) {
+            if (!currentGermanText) return;
+            speakGerman(currentGermanText, rate);
+        }
+
+        function speakGerman(text, rate) {
+            if (!('speechSynthesis' in window)) {
+                showError('這個瀏覽器不支援語音朗讀。');
+                return;
+            }
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'de-DE';
+            utterance.rate = rate;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function escapeHtml(value) {
+            return String(value).replace(/[&<>'"]/g, char => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#039;', '"': '&quot;'
+            }[char]));
+        }
+    </script>
+</body>
+</html>
